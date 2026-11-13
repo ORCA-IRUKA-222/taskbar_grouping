@@ -144,6 +144,8 @@ sealed class SettingsWindow : Window
     readonly System.Windows.Controls.ListBox _groups = new System.Windows.Controls.ListBox { Width = 180, DisplayMemberPath = nameof(GroupDefinition.Name) };
     readonly System.Windows.Controls.ListBox _members = new();
     readonly System.Windows.Controls.ListBox _running = new();
+    readonly System.Windows.Controls.TextBox _search = new() { Margin = new Thickness(0, 0, 0, 4), ToolTip = "アプリ名で検索" };
+    List<AppEntry> _allApps = new();
 
     public SettingsWindow(GroupConfig config, Action changed)
     {
@@ -211,14 +213,19 @@ sealed class SettingsWindow : Window
         var refresh = new System.Windows.Controls.Button { Content = "アプリ一覧を更新" };
         refresh.Click += (_, _) => RefreshRunning();
 
+        var rightPane = new DockPanel();
+        DockPanel.SetDock(_search, Dock.Top);
+        rightPane.Children.Add(_search); rightPane.Children.Add(_running);
+        _search.TextChanged += (_, _) => ApplyFilter();
+
         var grid = new Grid { Margin = new Thickness(8) };
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8) };
         mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(shortcut); mid.Children.Add(manual); mid.Children.Add(manualAdd);
-        Grid.SetColumn(_members, 0); Grid.SetColumn(mid, 1); Grid.SetColumn(_running, 2);
-        grid.Children.Add(_members); grid.Children.Add(mid); grid.Children.Add(_running);
+        Grid.SetColumn(_members, 0); Grid.SetColumn(mid, 1); Grid.SetColumn(rightPane, 2);
+        grid.Children.Add(_members); grid.Children.Add(mid); grid.Children.Add(rightPane);
 
         var root = new DockPanel();
         DockPanel.SetDock(left, Dock.Left); root.Children.Add(left); root.Children.Add(grid);
@@ -231,5 +238,11 @@ sealed class SettingsWindow : Window
     void RefreshGroups() { _groups.ItemsSource = null; _groups.ItemsSource = _config.Groups; }
     void RefreshMembers() => _members.ItemsSource =
         (_groups.SelectedItem as GroupDefinition)?.ProcessNames.ToList();
-    void RefreshRunning() => _running.ItemsSource = AppCatalog.Collect();
+    void RefreshRunning() { _allApps = AppCatalog.Collect(); ApplyFilter(); }
+    void ApplyFilter()
+    {
+        var q = _search.Text.Trim();
+        _running.ItemsSource = q.Length == 0 ? _allApps
+            : _allApps.Where(a => a.ToString().Contains(q, StringComparison.CurrentCultureIgnoreCase)).ToList();
+    }
 }

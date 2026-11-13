@@ -12,6 +12,15 @@ static class AppCatalog
 {
     static string Env(Environment.SpecialFolder f) => Environment.GetFolderPath(f);
 
+    static Dictionary<string, AppEntry>? _cache;
+
+    /// <summary>プロセス名からアプリ情報(起動パス等)を引く。初回のみ全体を走査する。</summary>
+    public static AppEntry? Lookup(string processName)
+    {
+        if (_cache is null) Collect();
+        return _cache!.TryGetValue(processName, out var e) ? e : null;
+    }
+
     public static List<AppEntry> Collect()
     {
         var map = new Dictionary<string, AppEntry>(StringComparer.OrdinalIgnoreCase);
@@ -40,6 +49,7 @@ static class AppCatalog
             map[w.ProcessName] = new AppEntry(e?.DisplayName ?? w.ProcessName, w.ProcessName, true, e?.Pinned ?? false, e?.LaunchPath);
         }
 
+        _cache = map;
         return map.Values
             .OrderByDescending(a => a.Pinned).ThenByDescending(a => a.Running)
             .ThenBy(a => a.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();

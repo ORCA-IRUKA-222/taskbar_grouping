@@ -37,7 +37,13 @@ sealed class GroupPopup : Window
             {
                 Close();
                 if (wins.Count > 0) { NativeWindows.Activate(wins[0].Handle); return; }
-                if (!group.LaunchPaths.TryGetValue(proc, out var path)) return;
+                if (!group.LaunchPaths.TryGetValue(proc, out var path))
+                    path = AppCatalog.Lookup(proc)?.LaunchPath;
+                if (path is null)
+                {
+                    System.Windows.MessageBox.Show($"{proc} の起動方法が見つかりません。設定画面で一度グループから外し、一覧から追加し直してください。", "Taskbar Grouping");
+                    return;
+                }
                 if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
                     Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
                 else if (File.Exists(path))
@@ -75,7 +81,12 @@ static class ShortcutMaker
         var sc = sh.CreateShortcut(lnk);
         sc.TargetPath = Environment.ProcessPath;
         sc.Arguments = $"--group {g.Id}";
-        sc.IconLocation = Environment.ProcessPath + ",0";
+        var sources = g.ProcessNames
+            .Select(pn => g.LaunchPaths.TryGetValue(pn, out var lp) ? lp : AppCatalog.Lookup(pn)?.LaunchPath)
+            .Where(x => x is not null).Select(x => x!).ToList();
+        var ico = Path.Combine(FolderPath, g.Id + ".ico");
+        bool ok = IconComposer.Compose(sources, ico);
+        sc.IconLocation = (ok ? ico : Environment.ProcessPath) + ",0";
         sc.Description = g.Name;
         sc.Save();
         int hr = NativeWindows.SetShortcutAppId(lnk, g.AppUserModelId);
