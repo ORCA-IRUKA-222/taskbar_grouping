@@ -17,7 +17,7 @@ sealed class GroupPopup : Window
         Dispatcher.BeginInvoke(new Action(Close)); // Deactivated 中に直接 Close すると例外になるため遅延
     }
 
-    public GroupPopup(GroupDefinition group)
+    public GroupPopup(GroupDefinition group, System.Drawing.Point? clickPx = null)
     {
         Program.LogError($"ポップアップ表示: {group.Name} メンバー={group.ProcessNames.Count}");
         Title = group.Name;
@@ -36,7 +36,9 @@ sealed class GroupPopup : Window
         {
             var wins = running.Where(w => string.Equals(w.ProcessName, proc, StringComparison.OrdinalIgnoreCase)).ToList();
             group.DisplayNames.TryGetValue(proc, out var disp);
-            var label = (wins.Count > 0 ? "● " : "○ ") + (disp ?? proc);
+            var label = new StackPanel { Orientation = Orientation.Horizontal };
+            label.Children.Add(new TextBlock { Text = wins.Count > 0 ? "●" : "", Width = 18 }); // 起動中だけ印を付ける
+            label.Children.Add(new TextBlock { Text = disp ?? proc });
             var b = new System.Windows.Controls.Button
             {
                 Content = label, HorizontalContentAlignment = System.Windows.HorizontalAlignment.Left,
@@ -75,10 +77,15 @@ sealed class GroupPopup : Window
         Deactivated += (_, _) => CloseOnce();
         Loaded += (_, _) =>
         {
-            // 画面右下(タスクバーの上)付近に表示
-            var wa = SystemParameters.WorkArea;
-            Left = Math.Max(wa.Left, Math.Min(wa.Right - ActualWidth - 8, wa.Right));
-            Top = wa.Bottom - ActualHeight - 8;
+            // クリックされた位置(タスクバーのボタン)の真上に表示。座標は物理ピクセルで計算し DIP へ変換する
+            double scale = System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleX;
+            var click = clickPx ?? System.Windows.Forms.Cursor.Position;
+            var wa = System.Windows.Forms.Screen.FromPoint(click).WorkingArea;
+            double w = ActualWidth * scale, h = ActualHeight * scale, gap = 8 * scale;
+            double left = Math.Max(wa.Left + gap, Math.Min(click.X - w / 2, wa.Right - w - gap));
+            bool taskbarBelow = click.Y > wa.Top + wa.Height / 2;
+            double top = taskbarBelow ? wa.Bottom - h - gap : wa.Top + gap;
+            Left = left / scale; Top = top / scale;
             Activate();
         };
     }

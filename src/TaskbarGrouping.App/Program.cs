@@ -47,7 +47,8 @@ static class Program
             if (groupArg is not null)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(requestFile)!);
-                File.WriteAllText(requestFile, groupArg);
+                var c = System.Windows.Forms.Cursor.Position; // ボタンを押した位置を記録
+                File.WriteAllText(requestFile, $"{groupArg}|{c.X}|{c.Y}");
                 popupEvent.Set();
             }
             else showEvent.Set();
@@ -69,10 +70,13 @@ static class Program
             win.Show();
         }
 
-        void ShowPopup(string id)
+        void ShowPopup(string request)
         {
-            var g = config.Groups.FirstOrDefault(x => x.Id == id);
-            if (g is not null) new GroupPopup(g).Show();
+            var parts = request.Split('|');
+            System.Drawing.Point? pos = parts.Length == 3 && int.TryParse(parts[1], out var x) && int.TryParse(parts[2], out var y)
+                ? new System.Drawing.Point(x, y) : null;
+            var g = config.Groups.FirstOrDefault(v => v.Id == parts[0]);
+            if (g is not null) new GroupPopup(g, pos).Show();
         }
 
         var waiter = new Thread(() =>
