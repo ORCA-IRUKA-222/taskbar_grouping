@@ -9,6 +9,9 @@ namespace TaskbarGrouping.App;
 /// <summary>グループ用ピン留めボタンを押したときに出る一覧。起動中なら前面へ、未起動なら起動する。</summary>
 sealed class GroupPopup : Window
 {
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
     bool _closing;
     void CloseOnce()
     {
@@ -85,7 +88,10 @@ sealed class GroupPopup : Window
             double left = Math.Max(wa.Left + gap, Math.Min(click.X - w / 2, wa.Right - w - gap));
             bool taskbarBelow = click.Y > wa.Top + wa.Height / 2;
             double top = taskbarBelow ? wa.Bottom - h - gap : wa.Top + gap;
-            Left = left / scale; Top = top / scale;
+            // 物理ピクセルで直接配置する(DIP 変換による二重スケールを避ける)
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            SetWindowPos(hwnd, IntPtr.Zero, (int)left, (int)top, 0, 0, 0x0001 | 0x0004 | 0x0010); // NOSIZE|NOZORDER|NOACTIVATE
+            Program.LogError($"ポップアップ位置: click=({click.X},{click.Y}) scale={scale} -> ({(int)left},{(int)top})");
             Activate();
         };
     }
