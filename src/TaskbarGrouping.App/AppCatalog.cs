@@ -30,6 +30,9 @@ static class AppCatalog
                 @"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"),
             pinned: true);
 
+        // 2.5) ストアアプリ(新しい Teams など)。PowerShell で列挙する
+        AddStoreApps(map);
+
         // 3) 実行中のウィンドウ(ストアアプリ等、ショートカットから取れないものを補う)
         foreach (var w in NativeWindows.GetTaskbarWindows())
         {
@@ -40,6 +43,48 @@ static class AppCatalog
         return map.Values
             .OrderByDescending(a => a.Pinned).ThenByDescending(a => a.Running)
             .ThenBy(a => a.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    const string StoreAppsScript = @"
+$pk=@{}; Get-AppxPackage | ForEach-Object { $pk[$_.PackageFamilyName]=$_.InstallLocation }
+Get-StartApps | ForEach-Object {
+  $id=$_.AppID; $exe=''
+  if ($id -match '^(.+)!(.+)$') {
+    $loc=$pk[$matches[1]]; $aid=$matches[2]
+    if ($loc -and (Test-Path ""$loc\AppxManifest.xml"")) {
+      try { [xml]$m=Get-Content ""$loc\AppxManifest.xml""
+        $a=@($m.Package.Applications.Application) | Where-Object { $_.Id -eq $aid } | Select-Object -First 1
+        $exe=$a.Executable } catch {}
+    }
+    if ($exe) { ""$($_.Name)`t$id`t$exe"" }
+  }
+}";
+
+    static void AddStoreApps(Dictionary<string, AppEntry> map)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("powershell.exe",
+                "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " +
+                Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(
+                    "[Console]::OutputEncoding=[Text.Encoding]::UTF8;" + StoreAppsScript)))
+            {
+                RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+            };
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            var output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit(15000);
+            foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = line.TrimEnd('\r').Split('\t');
+                if (parts.Length < 3) continue;
+                var proc = Path.GetFileNameWithoutExtension(parts[2]);
+                if (proc.Length == 0 || map.ContainsKey(proc)) continue;
+                map[proc] = new AppEntry(parts[0], proc, false, false, @"shell:AppsFolder\" + parts[1]);
+            }
+        }
+        catch (Exception ex) { Program.LogError("ストアアプリ列挙に失敗: " + ex.Message); }
     }
 
     static void AddShortcuts(Dictionary<string, AppEntry> map, string dir, bool pinned)

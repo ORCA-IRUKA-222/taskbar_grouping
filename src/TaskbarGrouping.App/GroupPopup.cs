@@ -37,7 +37,10 @@ sealed class GroupPopup : Window
             {
                 Close();
                 if (wins.Count > 0) { NativeWindows.Activate(wins[0].Handle); return; }
-                if (group.LaunchPaths.TryGetValue(proc, out var path) && File.Exists(path))
+                if (!group.LaunchPaths.TryGetValue(proc, out var path)) return;
+                if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                    Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
+                else if (File.Exists(path))
                     Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
             };
             panel.Children.Add(b);
