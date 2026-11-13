@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -8,7 +9,29 @@ namespace TaskbarGrouping.App;
 static class Program
 {
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
+    {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => LogError(e.ExceptionObject);
+        try { Run(args); }
+        catch (Exception ex)
+        {
+            LogError(ex);
+            System.Windows.MessageBox.Show(ex.ToString(), "Taskbar Grouping エラー");
+        }
+    }
+
+    static void LogError(object? ex)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(GroupConfig.DefaultPath)!;
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "error.log"), $"{DateTime.Now:s} {ex}\n");
+        }
+        catch (Exception) { }
+    }
+
+    static void Run(string[] args)
     {
         var config = GroupConfig.Load();
         var applier = new GroupApplier(config);
@@ -43,7 +66,7 @@ static class Program
         });
         tray.DoubleClick += (_, _) => ShowSettings();
 
-        if (config.Groups.Count == 0) ShowSettings();
+        if (!args.Contains("--minimized")) ShowSettings();
         app.Run();
     }
 }
@@ -65,7 +88,7 @@ static class AutoStart
     public static void Set(bool on)
     {
         using var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(KeyPath, writable: true)!;
-        if (on) k.SetValue(ValueName, $"\"{Environment.ProcessPath}\"");
+        if (on) k.SetValue(ValueName, $"\"{Environment.ProcessPath}\" --minimized");
         else k.DeleteValue(ValueName, throwOnMissingValue: false);
     }
 }
