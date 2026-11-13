@@ -1,4 +1,5 @@
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -33,6 +34,11 @@ static class Program
 
     static void Run(string[] args)
     {
+        LogError("起動開始 args=" + string.Join(" ", args));
+        // 多重起動防止: 2 つ目は既存プロセスに「設定を開け」と通知して終了
+        using var mutex = new Mutex(true, @"Local\TaskbarGrouping.SingleInstance", out var first);
+        var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\TaskbarGrouping.Show");
+        if (!first) { showEvent.Set(); return; }
         var config = GroupConfig.Load();
         var applier = new GroupApplier(config);
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -48,6 +54,12 @@ static class Program
             win = new SettingsWindow(config, () => { config.Save(); applier.Reapply(); });
             win.Show();
         }
+
+        var waiter = new Thread(() =>
+        {
+            while (showEvent.WaitOne()) app.Dispatcher.Invoke(ShowSettings);
+        }) { IsBackground = true };
+        waiter.Start();
 
         var tray = new NotifyIcon
         {
