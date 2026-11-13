@@ -11,6 +11,7 @@ sealed class GroupPopup : Window
 {
     public GroupPopup(GroupDefinition group)
     {
+        Program.LogError($"ポップアップ表示: {group.Name} メンバー={group.ProcessNames.Count}");
         Title = group.Name;
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
@@ -35,6 +36,7 @@ sealed class GroupPopup : Window
             };
             b.Click += (_, _) =>
             {
+                Program.LogError($"ポップアップ押下: {proc} 起動中ウィンドウ数={wins.Count}");
                 Close();
                 if (wins.Count > 0) { NativeWindows.Activate(wins[0].Handle); return; }
                 if (!group.LaunchPaths.TryGetValue(proc, out var path))
@@ -44,10 +46,19 @@ sealed class GroupPopup : Window
                     System.Windows.MessageBox.Show($"{proc} の起動方法が見つかりません。設定画面で一度グループから外し、一覧から追加し直してください。", "Taskbar Grouping");
                     return;
                 }
-                if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
-                    Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
-                else if (File.Exists(path))
-                    Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                Program.LogError($"起動: {proc} -> {path} (存在={File.Exists(path)})");
+                try
+                {
+                    if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                        Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
+                    else
+                        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    Program.LogError("起動失敗: " + ex);
+                    System.Windows.MessageBox.Show($"{proc} を起動できませんでした。\n{ex.Message}", "Taskbar Grouping");
+                }
             };
             panel.Children.Add(b);
         }
