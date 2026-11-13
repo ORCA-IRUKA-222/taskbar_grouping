@@ -50,9 +50,9 @@ sealed class SettingsWindow : Window
 {
     readonly GroupConfig _config;
     readonly Action _changed;
-    readonly ListBox _groups = new() { Width = 180, DisplayMemberPath = nameof(GroupDefinition.Name) };
-    readonly ListBox _members = new();
-    readonly ListBox _running = new() { DisplayMemberPath = nameof(NativeWindows.TopWindow.ProcessName) };
+    readonly System.Windows.Controls.ListBox _groups = new System.Windows.Controls.ListBox { Width = 180, DisplayMemberPath = nameof(GroupDefinition.Name) };
+    readonly System.Windows.Controls.ListBox _members = new();
+    readonly System.Windows.Controls.ListBox _running = new() { DisplayMemberPath = nameof(NativeWindows.TopWindow.ProcessName) };
 
     public SettingsWindow(GroupConfig config, Action changed)
     {
