@@ -38,7 +38,21 @@ static class Program
         // 多重起動防止: 2 つ目は既存プロセスに「設定を開け」と通知して終了
         using var mutex = new Mutex(true, @"Local\TaskbarGrouping.SingleInstance", out var first);
         var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\TaskbarGrouping.Show");
-        if (!first) { showEvent.Set(); return; }
+        var popupEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\TaskbarGrouping.Popup");
+        var requestFile = Path.Combine(Path.GetDirectoryName(GroupConfig.DefaultPath)!, "popup.request");
+        var gi = Array.IndexOf(args, "--group");
+        var groupArg = gi >= 0 && gi + 1 < args.Length ? args[gi + 1] : null;
+        if (!first)
+        {
+            if (groupArg is not null)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(requestFile)!);
+                File.WriteAllText(requestFile, groupArg);
+                popupEvent.Set();
+            }
+            else showEvent.Set();
+            return;
+        }
         var config = GroupConfig.Load();
         var applier = new GroupApplier(config);
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
@@ -55,9 +69,25 @@ static class Program
             win.Show();
         }
 
+        void ShowPopup(string id)
+        {
+            var g = config.Groups.FirstOrDefault(x => x.Id == id);
+            if (g is not null) new GroupPopup(g).Show();
+        }
+
         var waiter = new Thread(() =>
         {
-            while (showEvent.WaitOne()) app.Dispatcher.Invoke(ShowSettings);
+            while (true)
+            {
+                int i = WaitHandle.WaitAny(new WaitHandle[] { showEvent, popupEvent });
+                if (i == 0) app.Dispatcher.Invoke(ShowSettings);
+                else
+                {
+                    string id = "";
+                    try { id = File.ReadAllText(requestFile).Trim(); } catch (IOException) { }
+                    app.Dispatcher.Invoke(() => ShowPopup(id));
+                }
+            }
         }) { IsBackground = true };
         waiter.Start();
 
@@ -78,7 +108,8 @@ static class Program
         });
         tray.DoubleClick += (_, _) => ShowSettings();
 
-        if (!args.Contains("--minimized")) ShowSettings();
+        if (groupArg is not null) ShowPopup(groupArg);
+        else if (!args.Contains("--minimized")) ShowSettings();
         app.Run();
     }
 }
@@ -117,7 +148,7 @@ sealed class SettingsWindow : Window
     public SettingsWindow(GroupConfig config, Action changed)
     {
         _config = config; _changed = changed;
-        Title = "Taskbar Grouping"; Width = 720; Height = 420;
+        Title = "Taskbar Grouping"; Width = 860; Height = 460;
 
         var newName = new System.Windows.Controls.TextBox { Margin = new Thickness(0, 0, 0, 4) };
         var add = new System.Windows.Controls.Button { Content = "グループ追加" };
@@ -146,7 +177,10 @@ sealed class SettingsWindow : Window
             {
                 foreach (var other in _config.Groups) other.ProcessNames.RemoveAll(
                     p => string.Equals(p, w.ProcessName, StringComparison.OrdinalIgnoreCase));
-                g.ProcessNames.Add(w.ProcessName); RefreshMembers(); _changed();
+                g.ProcessNames.Add(w.ProcessName);
+                g.DisplayNames[w.ProcessName] = w.DisplayName;
+                if (w.LaunchPath is not null) g.LaunchPaths[w.ProcessName] = w.LaunchPath;
+                RefreshMembers(); _changed();
             }
         };
         var remove = new System.Windows.Controls.Button { Content = "選択アプリを外す" };
@@ -163,6 +197,17 @@ sealed class SettingsWindow : Window
             if (_groups.SelectedItem is GroupDefinition g && name.Length > 0 && !g.ProcessNames.Contains(name, StringComparer.OrdinalIgnoreCase))
             { g.ProcessNames.Add(name); manual.Clear(); RefreshMembers(); _changed(); }
         };
+        var shortcut = new System.Windows.Controls.Button { Content = "グループのボタン用ショートカットを作成", Margin = new Thickness(0, 12, 0, 0) };
+        shortcut.Click += (_, _) =>
+        {
+            if (_groups.SelectedItem is not GroupDefinition g) return;
+            _changed();
+            var lnk = ShortcutMaker.Create(g);
+            System.Windows.MessageBox.Show(
+                "ショートカットを作成しました。\n開いたフォルダで右クリック →「その他のオプションを確認」→「タスクバーにピン留めする」を行ってください。\nその後、グループに入れた個別のピン留めはタスクバーから外してください。",
+                "Taskbar Grouping");
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{lnk}\"");
+        };
         var refresh = new System.Windows.Controls.Button { Content = "アプリ一覧を更新" };
         refresh.Click += (_, _) => RefreshRunning();
 
@@ -171,7 +216,7 @@ sealed class SettingsWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8) };
-        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(manual); mid.Children.Add(manualAdd);
+        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(shortcut); mid.Children.Add(manual); mid.Children.Add(manualAdd);
         Grid.SetColumn(_members, 0); Grid.SetColumn(mid, 1); Grid.SetColumn(_running, 2);
         grid.Children.Add(_members); grid.Children.Add(mid); grid.Children.Add(_running);
 

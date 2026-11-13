@@ -52,6 +52,52 @@ static class NativeWindows
         ShowWindow(hwnd, min ? 7 : 4);       // SW_SHOWMINNOACTIVE / SW_SHOWNOACTIVATE
     }
 
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+
+    /// <summary>ウィンドウを前面へ(最小化なら復元)。</summary>
+    public static void Activate(IntPtr hwnd)
+    {
+        if (IsIconic(hwnd)) ShowWindow(hwnd, 9); // SW_RESTORE
+        SetForegroundWindow(hwnd);
+    }
+
+    [ComImport, Guid("0000010B-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPersistFile
+    {
+        [PreserveSig] int GetClassID(out Guid id);
+        [PreserveSig] int IsDirty();
+        [PreserveSig] int Load([MarshalAs(UnmanagedType.LPWStr)] string file, uint mode);
+        [PreserveSig] int Save([MarshalAs(UnmanagedType.LPWStr)] string? file, [MarshalAs(UnmanagedType.Bool)] bool remember);
+        [PreserveSig] int SaveCompleted([MarshalAs(UnmanagedType.LPWStr)] string file);
+        [PreserveSig] int GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string file);
+    }
+
+    [ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+    class ShellLink { }
+
+    /// <summary>.lnk に AppUserModelID を書き込む(ピン留めボタンと起動中ウィンドウを同一ボタンにするため)。</summary>
+    public static int SetShortcutAppId(string lnkPath, string appId)
+    {
+        var link = new ShellLink();
+        var pv = new PropVariant { Vt = VT_LPWSTR, P = Marshal.StringToCoTaskMemUni(appId) };
+        try
+        {
+            int hr = ((IPersistFile)link).Load(lnkPath, 2); // STGM_READWRITE
+            if (hr != 0) return hr;
+            var store = (IPropertyStore)link;
+            hr = store.SetValue(ref AppIdKey, ref pv);
+            if (hr != 0) return hr;
+            hr = store.Commit();
+            if (hr != 0) return hr;
+            return ((IPersistFile)link).Save(lnkPath, true);
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem(pv.P);
+            Marshal.ReleaseComObject(link);
+        }
+    }
+
     // ---- AppUserModelID ----
     [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IPropertyStore

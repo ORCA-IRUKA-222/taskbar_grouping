@@ -2,7 +2,7 @@ using System.IO;
 namespace TaskbarGrouping.App;
 
 /// <summary>グループに登録できるアプリ。起動していなくても、ピン留め・スタートメニューから集める。</summary>
-sealed record AppEntry(string DisplayName, string ProcessName, bool Running, bool Pinned)
+sealed record AppEntry(string DisplayName, string ProcessName, bool Running, bool Pinned, string? LaunchPath = null)
 {
     public override string ToString() =>
         $"{(Running ? "●" : "　")}{(Pinned ? "📌" : "　")} {DisplayName} ({ProcessName})";
@@ -34,7 +34,7 @@ static class AppCatalog
         foreach (var w in NativeWindows.GetTaskbarWindows())
         {
             map.TryGetValue(w.ProcessName, out var e);
-            map[w.ProcessName] = new AppEntry(e?.DisplayName ?? w.ProcessName, w.ProcessName, true, e?.Pinned ?? false);
+            map[w.ProcessName] = new AppEntry(e?.DisplayName ?? w.ProcessName, w.ProcessName, true, e?.Pinned ?? false, e?.LaunchPath);
         }
 
         return map.Values
@@ -62,7 +62,7 @@ static class AppCatalog
                 var name = Path.GetFileNameWithoutExtension(lnk);
                 if (name.Contains("uninstall", StringComparison.OrdinalIgnoreCase)) continue;
                 map.TryGetValue(proc, out var old);
-                map[proc] = new AppEntry(name, proc, false, pinned || (old?.Pinned ?? false));
+                map[proc] = new AppEntry(name, proc, false, pinned || (old?.Pinned ?? false), pinned ? lnk : (old?.LaunchPath ?? lnk));
             }
             catch (Exception) { /* 壊れたショートカットは無視 */ }
         }

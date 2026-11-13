@@ -8,6 +8,10 @@ public sealed class GroupDefinition
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "新しいグループ";
     public List<string> ProcessNames { get; set; } = new();
+    /// <summary>プロセス名 → 起動用ショートカット(.lnk)のパス。未起動時の起動に使う。</summary>
+    public Dictionary<string, string> LaunchPaths { get; set; } = new();
+    /// <summary>プロセス名 → 表示名。</summary>
+    public Dictionary<string, string> DisplayNames { get; set; } = new();
 
     /// <summary>同じ AppUserModelID を持つウィンドウは 1 つのタスクバーボタンにまとまる。</summary>
     public string AppUserModelId => "TaskbarGrouping." + Id;
