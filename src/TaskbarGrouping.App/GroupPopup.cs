@@ -30,7 +30,7 @@ sealed class GroupPopup : Window
             var label = (wins.Count > 0 ? "● " : "○ ") + (disp ?? proc);
             var b = new System.Windows.Controls.Button
             {
-                Content = label, HorizontalContentAlignment = HorizontalAlignment.Left,
+                Content = label, HorizontalContentAlignment = System.Windows.HorizontalAlignment.Left,
                 Padding = new Thickness(8, 6, 8, 6), Margin = new Thickness(0, 1, 0, 1)
             };
             b.Click += (_, _) =>
