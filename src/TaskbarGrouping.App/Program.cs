@@ -155,6 +155,14 @@ sealed class SettingsWindow : Window
             if (_groups.SelectedItem is GroupDefinition g && _members.SelectedItem is string p)
             { g.ProcessNames.Remove(p); RefreshMembers(); _changed(); }
         };
+        var manual = new System.Windows.Controls.TextBox { Margin = new Thickness(0, 12, 0, 2), ToolTip = "例: ms-teams" };
+        var manualAdd = new System.Windows.Controls.Button { Content = "プロセス名を手入力で追加" };
+        manualAdd.Click += (_, _) =>
+        {
+            var name = System.IO.Path.GetFileNameWithoutExtension(manual.Text.Trim());
+            if (_groups.SelectedItem is GroupDefinition g && name.Length > 0 && !g.ProcessNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+            { g.ProcessNames.Add(name); manual.Clear(); RefreshMembers(); _changed(); }
+        };
         var refresh = new System.Windows.Controls.Button { Content = "アプリ一覧を更新" };
         refresh.Click += (_, _) => RefreshRunning();
 
@@ -163,7 +171,7 @@ sealed class SettingsWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8) };
-        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh);
+        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(manual); mid.Children.Add(manualAdd);
         Grid.SetColumn(_members, 0); Grid.SetColumn(mid, 1); Grid.SetColumn(_running, 2);
         grid.Children.Add(_members); grid.Children.Add(mid); grid.Children.Add(_running);
 
