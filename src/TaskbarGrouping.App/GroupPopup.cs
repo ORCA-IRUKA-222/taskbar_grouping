@@ -36,7 +36,7 @@ sealed class GroupPopup : Window
         {
             var wins = running.Where(w => string.Equals(w.ProcessName, proc, StringComparison.OrdinalIgnoreCase)).ToList();
             group.DisplayNames.TryGetValue(proc, out var disp);
-            var label = new StackPanel { Orientation = Orientation.Horizontal };
+            var label = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
             label.Children.Add(new TextBlock { Text = wins.Count > 0 ? "●" : "", Width = 18 }); // 起動中だけ印を付ける
             label.Children.Add(new TextBlock { Text = disp ?? proc });
             var b = new System.Windows.Controls.Button
