@@ -34,6 +34,9 @@ static class Program
             ContextMenuStrip = new ContextMenuStrip()
         };
         tray.ContextMenuStrip.Items.Add("設定を開く", null, (_, _) => ShowSettings());
+        var auto = new ToolStripMenuItem("Windows 起動時に自動実行") { Checked = AutoStart.IsEnabled };
+        auto.Click += (_, _) => { AutoStart.Set(!AutoStart.IsEnabled); auto.Checked = AutoStart.IsEnabled; };
+        tray.ContextMenuStrip.Items.Add(auto);
         tray.ContextMenuStrip.Items.Add("終了(グループ化を解除)", null, (_, _) =>
         {
             timer.Stop(); applier.ResetAll(); tray.Visible = false; app.Shutdown();
@@ -42,6 +45,28 @@ static class Program
 
         if (config.Groups.Count == 0) ShowSettings();
         app.Run();
+    }
+}
+
+static class AutoStart
+{
+    const string KeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    const string ValueName = "TaskbarGrouping";
+
+    public static bool IsEnabled
+    {
+        get
+        {
+            using var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(KeyPath);
+            return k?.GetValue(ValueName) is not null;
+        }
+    }
+
+    public static void Set(bool on)
+    {
+        using var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(KeyPath, writable: true)!;
+        if (on) k.SetValue(ValueName, $"\"{Environment.ProcessPath}\"");
+        else k.DeleteValue(ValueName, throwOnMissingValue: false);
     }
 }
 

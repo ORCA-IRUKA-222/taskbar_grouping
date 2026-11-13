@@ -19,3 +19,8 @@
 - ボタンのアイコン・名前は最初のウィンドウのものになる。
 - ストア(UWP)アプリは ApplicationFrameHost 配下のため対象外になる可能性あり。
 - 起動済みのウィンドウは再グループ化で一瞬ボタンが入れ替わる。
+
+## 普段使い(コマンド不要にする)
+    dotnet publish src/TaskbarGrouping.App -c Release -r win-x64 --self-contained false -o publish
+`publish\TaskbarGrouping.App.exe` をダブルクリックで起動(トレイに常駐)。
+トレイアイコン右クリック → 「Windows 起動時に自動実行」で自動起動を設定。

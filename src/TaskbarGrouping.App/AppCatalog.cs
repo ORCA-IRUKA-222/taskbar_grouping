@@ -1,3 +1,4 @@
+using System.IO;
 namespace TaskbarGrouping.App;
 
 /// <summary>グループに登録できるアプリ。起動していなくても、ピン留め・スタートメニューから集める。</summary>
