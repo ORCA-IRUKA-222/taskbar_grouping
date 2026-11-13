@@ -52,7 +52,7 @@ sealed class SettingsWindow : Window
     readonly Action _changed;
     readonly System.Windows.Controls.ListBox _groups = new System.Windows.Controls.ListBox { Width = 180, DisplayMemberPath = nameof(GroupDefinition.Name) };
     readonly System.Windows.Controls.ListBox _members = new();
-    readonly System.Windows.Controls.ListBox _running = new() { DisplayMemberPath = nameof(NativeWindows.TopWindow.ProcessName) };
+    readonly System.Windows.Controls.ListBox _running = new();
 
     public SettingsWindow(GroupConfig config, Action changed)
     {
@@ -82,7 +82,7 @@ sealed class SettingsWindow : Window
         var toGroup = new System.Windows.Controls.Button { Content = "◀ 選択グループへ追加" };
         toGroup.Click += (_, _) =>
         {
-            if (_groups.SelectedItem is GroupDefinition g && _running.SelectedItem is NativeWindows.TopWindow w)
+            if (_groups.SelectedItem is GroupDefinition g && _running.SelectedItem is AppEntry w)
             {
                 foreach (var other in _config.Groups) other.ProcessNames.RemoveAll(
                     p => string.Equals(p, w.ProcessName, StringComparison.OrdinalIgnoreCase));
@@ -95,7 +95,7 @@ sealed class SettingsWindow : Window
             if (_groups.SelectedItem is GroupDefinition g && _members.SelectedItem is string p)
             { g.ProcessNames.Remove(p); RefreshMembers(); _changed(); }
         };
-        var refresh = new System.Windows.Controls.Button { Content = "実行中アプリを更新" };
+        var refresh = new System.Windows.Controls.Button { Content = "アプリ一覧を更新" };
         refresh.Click += (_, _) => RefreshRunning();
 
         var grid = new Grid { Margin = new Thickness(8) };
@@ -118,6 +118,5 @@ sealed class SettingsWindow : Window
     void RefreshGroups() { _groups.ItemsSource = null; _groups.ItemsSource = _config.Groups; }
     void RefreshMembers() => _members.ItemsSource =
         (_groups.SelectedItem as GroupDefinition)?.ProcessNames.ToList();
-    void RefreshRunning() => _running.ItemsSource = NativeWindows.GetTaskbarWindows()
-        .GroupBy(w => w.ProcessName).Select(g => g.First()).OrderBy(w => w.ProcessName).ToList();
+    void RefreshRunning() => _running.ItemsSource = AppCatalog.Collect();
 }
