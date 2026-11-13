@@ -9,6 +9,14 @@ namespace TaskbarGrouping.App;
 /// <summary>グループ用ピン留めボタンを押したときに出る一覧。起動中なら前面へ、未起動なら起動する。</summary>
 sealed class GroupPopup : Window
 {
+    bool _closing;
+    void CloseOnce()
+    {
+        if (_closing) return;
+        _closing = true;
+        Dispatcher.BeginInvoke(new Action(Close)); // Deactivated 中に直接 Close すると例外になるため遅延
+    }
+
     public GroupPopup(GroupDefinition group)
     {
         Program.LogError($"ポップアップ表示: {group.Name} メンバー={group.ProcessNames.Count}");
@@ -37,7 +45,7 @@ sealed class GroupPopup : Window
             b.Click += (_, _) =>
             {
                 Program.LogError($"ポップアップ押下: {proc} 起動中ウィンドウ数={wins.Count}");
-                Close();
+                CloseOnce();
                 if (wins.Count > 0) { NativeWindows.Activate(wins[0].Handle); return; }
                 if (!group.LaunchPaths.TryGetValue(proc, out var path))
                     path = AppCatalog.Lookup(proc)?.LaunchPath;
@@ -64,7 +72,7 @@ sealed class GroupPopup : Window
         }
         Content = new Border { BorderBrush = System.Windows.Media.Brushes.Gray, BorderThickness = new Thickness(1), Child = panel };
 
-        Deactivated += (_, _) => Close();
+        Deactivated += (_, _) => CloseOnce();
         Loaded += (_, _) =>
         {
             // 画面右下(タスクバーの上)付近に表示
