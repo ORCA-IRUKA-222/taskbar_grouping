@@ -12,6 +12,7 @@ sealed class GroupApplier
 
     public void Tick()
     {
+        if (!Config.MergeWindows) { if (_applied.Count > 0) ResetAll(); return; }
         var windows = NativeWindows.GetTaskbarWindows();
         foreach (var w in windows)
         {

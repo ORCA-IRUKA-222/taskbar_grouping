@@ -214,6 +214,12 @@ sealed class SettingsWindow : Window
                 "Taskbar Grouping");
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{lnk}\"");
         };
+        var merge = new System.Windows.Controls.CheckBox
+        {
+            Content = "起動中のウィンドウをグループのボタンに集約する\n(オン: ボタンを押すと起動中のアプリが開く。\n一覧は Shift+クリックか中クリックで表示)",
+            IsChecked = _config.MergeWindows, Margin = new Thickness(0, 12, 0, 0)
+        };
+        merge.Click += (_, _) => { _config.MergeWindows = merge.IsChecked == true; _changed(); };
         var refresh = new System.Windows.Controls.Button { Content = "アプリ一覧を更新" };
         refresh.Click += (_, _) => RefreshRunning();
 
@@ -227,7 +233,7 @@ sealed class SettingsWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8) };
-        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(shortcut); mid.Children.Add(manual); mid.Children.Add(manualAdd);
+        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(shortcut); mid.Children.Add(merge); mid.Children.Add(manual); mid.Children.Add(manualAdd);
         Grid.SetColumn(_members, 0); Grid.SetColumn(mid, 1); Grid.SetColumn(rightPane, 2);
         grid.Children.Add(_members); grid.Children.Add(mid); grid.Children.Add(rightPane);
 

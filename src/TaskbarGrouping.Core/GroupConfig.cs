@@ -21,6 +21,10 @@ public sealed class GroupConfig
 {
     public List<GroupDefinition> Groups { get; set; } = new();
 
+    /// <summary>true: 起動中のウィンドウをグループのボタンに集約する(ただしボタンを押しても一覧は出ず、Shift+クリックか中クリックで一覧)。
+    /// false: グループのボタンは常に一覧を出す。</summary>
+    public bool MergeWindows { get; set; } = false;
+
     static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
     public static string DefaultPath => Path.Combine(
