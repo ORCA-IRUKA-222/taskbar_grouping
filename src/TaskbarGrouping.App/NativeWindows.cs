@@ -41,6 +41,17 @@ static class NativeWindows
         return list;
     }
 
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+
+    /// <summary>タスクバーに再評価させるため、ウィンドウを一瞬隠して戻す(最小化状態は保つ)。</summary>
+    public static void RefreshTaskbarButton(IntPtr hwnd)
+    {
+        bool min = IsIconic(hwnd);
+        ShowWindow(hwnd, 0);                 // SW_HIDE
+        ShowWindow(hwnd, min ? 7 : 4);       // SW_SHOWMINNOACTIVE / SW_SHOWNOACTIVATE
+    }
+
     // ---- AppUserModelID ----
     [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IPropertyStore
@@ -65,16 +76,18 @@ static class NativeWindows
     const ushort VT_EMPTY = 0, VT_LPWSTR = 31;
 
     /// <summary>ウィンドウの AppUserModelID を設定。appId=null で既定へ戻す。成功なら true。</summary>
-    public static bool SetAppUserModelId(IntPtr hwnd, string? appId)
+    public static int SetAppUserModelId(IntPtr hwnd, string? appId)
     {
         var iid = typeof(IPropertyStore).GUID;
-        if (SHGetPropertyStoreForWindow(hwnd, ref iid, out var store) != 0) return false;
+        int hr0 = SHGetPropertyStoreForWindow(hwnd, ref iid, out var store);
+        if (hr0 != 0) return hr0;
         var pv = new PropVariant();
         try
         {
             if (appId is not null) { pv.Vt = VT_LPWSTR; pv.P = Marshal.StringToCoTaskMemUni(appId); }
             else pv.Vt = VT_EMPTY;
-            return store.SetValue(ref AppIdKey, ref pv) == 0 && store.Commit() == 0;
+            int hr = store.SetValue(ref AppIdKey, ref pv);
+            return hr != 0 ? hr : store.Commit();
         }
         finally
         {

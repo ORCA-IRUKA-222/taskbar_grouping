@@ -17,7 +17,11 @@ sealed class GroupApplier
         {
             var g = Config.FindGroup(w.ProcessName);
             if (g is null || _applied.Contains(w.Handle)) continue;
-            if (NativeWindows.SetAppUserModelId(w.Handle, g.AppUserModelId)) _applied.Add(w.Handle);
+            int hr = NativeWindows.SetAppUserModelId(w.Handle, g.AppUserModelId);
+            Program.LogError($"適用 {w.ProcessName} '{w.Title}' -> {g.AppUserModelId} HRESULT=0x{hr:X8}");
+            if (hr != 0) { _applied.Add(w.Handle); continue; } // 失敗は再試行しない(ログ連発防止)
+            _applied.Add(w.Handle);
+            NativeWindows.RefreshTaskbarButton(w.Handle);
         }
         _applied.IntersectWith(windows.Select(w => w.Handle));
     }

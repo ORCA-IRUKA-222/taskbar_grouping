@@ -21,7 +21,7 @@ static class Program
         }
     }
 
-    static void LogError(object? ex)
+    internal static void LogError(object? ex)
     {
         try
         {
