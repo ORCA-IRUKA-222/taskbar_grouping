@@ -7,7 +7,7 @@
 常駐アプリが、グループに登録されたプロセスのウィンドウへ共通の AUMID を設定する。
 独自バーは作らない。終了時は AUMID を戻してグループ化を解除する。
 
-## ビルド(Windows, .NET 8 SDK)
+## ビルド(Windows, .NET 10 SDK)
     dotnet build src/TaskbarGrouping.App
     dotnet run --project src/TaskbarGrouping.App
 
