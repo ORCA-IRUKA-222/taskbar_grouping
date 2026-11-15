@@ -1,5 +1,6 @@
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -57,6 +58,29 @@ static class Program
         var config = GroupConfig.Load();
         var applier = new GroupApplier(config);
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+
+        // 起動方法(アイコン取得元)が未記録の登録済みアプリを、バックグラウンドで補完して保存する
+        if (config.Groups.Any(g => g.ProcessNames.Any(p => !g.LaunchPaths.ContainsKey(p))))
+        {
+            Task.Run(() => AppCatalog.Collect()).ContinueWith(t =>
+            {
+                if (t.IsFaulted) { LogError("アプリ情報の補完に失敗: " + t.Exception); return; }
+                app.Dispatcher.Invoke(() =>
+                {
+                    foreach (var g in config.Groups)
+                        foreach (var proc in g.ProcessNames)
+                        {
+                            if (g.LaunchPaths.ContainsKey(proc)) continue;
+                            var e = AppCatalog.Lookup(proc);
+                            if (e?.LaunchPath is null) continue;
+                            g.LaunchPaths[proc] = e.LaunchPath;
+                            g.DisplayNames[proc] = e.DisplayName;
+                        }
+                    config.Save();
+                    LogError("登録済みアプリの起動情報を補完しました");
+                });
+            }, TaskScheduler.Default);
+        }
 
         var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         timer.Tick += (_, _) => applier.Tick();
