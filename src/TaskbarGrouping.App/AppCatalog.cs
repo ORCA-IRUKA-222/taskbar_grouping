@@ -18,6 +18,26 @@ static class AppCatalog
 
     static Dictionary<string, AppEntry>? _cache;
 
+    /// <summary>プロセス名・表示名から、使える起動パスを探す。
+    /// ①同じプロセス名のショートカット ②同じ表示名のショートカット(起動用の別 exe を指す場合) ③起動中プロセスの exe。</summary>
+    public static string? Resolve(string processName, string? displayName)
+    {
+        var e = Lookup(processName);
+        if (IsUsable(e?.LaunchPath)) return e!.LaunchPath;
+
+        var name = string.IsNullOrWhiteSpace(displayName) ? processName : displayName;
+        var byName = _cache!.Values.FirstOrDefault(a => IsUsable(a.LaunchPath) &&
+            string.Equals(a.DisplayName, name, StringComparison.CurrentCultureIgnoreCase));
+        if (byName is not null) return byName.LaunchPath;
+
+        foreach (var p in System.Diagnostics.Process.GetProcessesByName(processName))
+        {
+            try { var f = p.MainModule?.FileName; if (IsUsable(f)) return f; }
+            catch (Exception) { /* 権限なし */ }
+        }
+        return null;
+    }
+
     /// <summary>プロセス名からアプリ情報(起動パス等)を引く。初回のみ全体を走査する。</summary>
     public static AppEntry? Lookup(string processName)
     {

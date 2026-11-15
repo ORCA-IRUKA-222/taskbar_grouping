@@ -27,8 +27,9 @@ sealed class GroupPopup : Window
         Program.LogError($"ポップアップ押下: {proc} 起動中ウィンドウ数={wins.Count}");
         CloseOnce();
         if (wins.Count > 0) { NativeWindows.Activate(wins[0].Handle); return; }
-        if (!_group.LaunchPaths.TryGetValue(proc, out var path))
-            path = AppCatalog.Lookup(proc)?.LaunchPath;
+        _group.LaunchPaths.TryGetValue(proc, out var path);
+        if (!AppCatalog.IsUsable(path))
+            path = AppCatalog.Resolve(proc, _group.DisplayNames.GetValueOrDefault(proc));
         if (path is null)
         {
             System.Windows.MessageBox.Show($"{proc} の起動方法が見つかりません。設定画面で一度グループから外し、一覧から追加し直してください。", "Taskbar Grouping");

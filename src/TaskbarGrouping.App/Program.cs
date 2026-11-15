@@ -71,10 +71,10 @@ static class Program
                         foreach (var proc in g.ProcessNames)
                         {
                             if (AppCatalog.IsUsable(g.LaunchPaths.GetValueOrDefault(proc))) continue;
-                            var e = AppCatalog.Lookup(proc);
-                            if (e?.LaunchPath is null) continue;
-                            g.LaunchPaths[proc] = e.LaunchPath;
-                            g.DisplayNames[proc] = e.DisplayName;
+                            var path = AppCatalog.Resolve(proc, g.DisplayNames.GetValueOrDefault(proc));
+                            if (path is null) { LogError($"起動パスを解決できません: {proc}"); continue; }
+                            g.LaunchPaths[proc] = path;
+                            if (!g.DisplayNames.ContainsKey(proc)) g.DisplayNames[proc] = proc;
                         }
                     config.Save();
                     LogError("登録済みアプリの起動情報を補完しました");
