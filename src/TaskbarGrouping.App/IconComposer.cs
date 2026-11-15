@@ -21,6 +21,15 @@ static class IconComposer
     [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
 
     /// <summary>.lnk / exe / shell:AppsFolder\... からアイコン画像を取得。</summary>
+    static readonly Dictionary<string, BitmapSource?> _cache = new();
+
+    public static BitmapSource? GetIconCached(string parsingName, int px = 64)
+    {
+        var key = $"{parsingName}|{px}";
+        if (!_cache.TryGetValue(key, out var v)) _cache[key] = v = GetIcon(parsingName, px);
+        return v;
+    }
+
     static BitmapSource? GetIcon(string parsingName, int px)
     {
         try

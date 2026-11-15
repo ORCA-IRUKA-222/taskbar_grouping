@@ -76,7 +76,7 @@ static class Program
             System.Drawing.Point? pos = parts.Length == 3 && int.TryParse(parts[1], out var x) && int.TryParse(parts[2], out var y)
                 ? new System.Drawing.Point(x, y) : null;
             var g = config.Groups.FirstOrDefault(v => v.Id == parts[0]);
-            if (g is not null) new GroupPopup(g, pos).Show();
+            if (g is not null) new GroupPopup(config, g, pos).Show();
         }
 
         var waiter = new Thread(() =>
@@ -214,12 +214,17 @@ sealed class SettingsWindow : Window
                 "Taskbar Grouping");
             System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{lnk}\"");
         };
-        var merge = new System.Windows.Controls.CheckBox
+        var hide = new System.Windows.Controls.CheckBox
         {
-            Content = "起動中のウィンドウをグループのボタンに集約する\n(オン: ボタンを押すと起動中のアプリが開く。\n一覧は Shift+クリックか中クリックで表示)",
-            IsChecked = _config.MergeWindows, Margin = new Thickness(0, 12, 0, 0)
+            Content = "グループ内のアプリを個別のタスクバーボタンとして表示しない",
+            IsChecked = _config.HideMemberButtons, Margin = new Thickness(0, 12, 0, 0)
         };
-        merge.Click += (_, _) => { _config.MergeWindows = merge.IsChecked == true; _changed(); };
+        hide.Click += (_, _) => { _config.HideMemberButtons = hide.IsChecked == true; _changed(); };
+        var view = new System.Windows.Controls.ComboBox { Margin = new Thickness(0, 8, 0, 0) };
+        view.Items.Add("一覧の表示: アイコンと名前");
+        view.Items.Add("一覧の表示: アイコンのみ");
+        view.SelectedIndex = (int)_config.PopupView;
+        view.SelectionChanged += (_, _) => { _config.PopupView = (PopupViewMode)view.SelectedIndex; _changed(); };
         var refresh = new System.Windows.Controls.Button { Content = "アプリ一覧を更新" };
         refresh.Click += (_, _) => RefreshRunning();
 
@@ -233,7 +238,7 @@ sealed class SettingsWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8) };
-        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(shortcut); mid.Children.Add(merge); mid.Children.Add(manual); mid.Children.Add(manualAdd);
+        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(shortcut); mid.Children.Add(hide); mid.Children.Add(view); mid.Children.Add(manual); mid.Children.Add(manualAdd);
         Grid.SetColumn(_members, 0); Grid.SetColumn(mid, 1); Grid.SetColumn(rightPane, 2);
         grid.Children.Add(_members); grid.Children.Add(mid); grid.Children.Add(rightPane);
 

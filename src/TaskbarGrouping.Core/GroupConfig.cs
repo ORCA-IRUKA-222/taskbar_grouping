@@ -17,13 +17,17 @@ public sealed class GroupDefinition
     public string AppUserModelId => "TaskbarGrouping." + Id;
 }
 
+public enum PopupViewMode { IconsAndNames, IconsOnly }
+
 public sealed class GroupConfig
 {
     public List<GroupDefinition> Groups { get; set; } = new();
 
-    /// <summary>true: 起動中のウィンドウをグループのボタンに集約する(ただしボタンを押しても一覧は出ず、Shift+クリックか中クリックで一覧)。
-    /// false: グループのボタンは常に一覧を出す。</summary>
-    public bool MergeWindows { get; set; } = false;
+    /// <summary>true: グループに入れたアプリを、個別のタスクバーボタンとして表示しない(グループのボタンだけにする)。</summary>
+    public bool HideMemberButtons { get; set; } = true;
+
+    /// <summary>グループのボタンを押したときに出る一覧の表示形式。</summary>
+    public PopupViewMode PopupView { get; set; } = PopupViewMode.IconsAndNames;
 
     static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 

@@ -98,6 +98,38 @@ static class NativeWindows
         }
     }
 
+    [ComImport, Guid("56FDF342-FD6D-11D0-958A-006097C9A090"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface ITaskbarList
+    {
+        [PreserveSig] int HrInit();
+        [PreserveSig] int AddTab(IntPtr hwnd);
+        [PreserveSig] int DeleteTab(IntPtr hwnd);
+        [PreserveSig] int ActivateTab(IntPtr hwnd);
+        [PreserveSig] int SetActiveAlt(IntPtr hwnd);
+    }
+
+    [ComImport, Guid("56FDF344-FD6D-11D0-958A-006097C9A090")]
+    class TaskbarListCoClass { }
+
+    static ITaskbarList? _taskbarList;
+
+    /// <summary>ウィンドウのタスクバーボタンを表示/非表示にする。0 なら成功。UI スレッドから呼ぶこと。</summary>
+    public static int SetTaskbarButtonVisible(IntPtr hwnd, bool visible)
+    {
+        try
+        {
+            if (_taskbarList is null)
+            {
+                var t = (ITaskbarList)new TaskbarListCoClass();
+                int hr0 = t.HrInit();
+                if (hr0 != 0) return hr0;
+                _taskbarList = t;
+            }
+            return visible ? _taskbarList.AddTab(hwnd) : _taskbarList.DeleteTab(hwnd);
+        }
+        catch (COMException ex) { _taskbarList = null; return ex.HResult; } // Explorer 再起動などで無効化された場合は作り直す
+    }
+
     // ---- AppUserModelID ----
     [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IPropertyStore

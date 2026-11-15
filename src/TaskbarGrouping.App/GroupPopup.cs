@@ -20,62 +20,95 @@ sealed class GroupPopup : Window
         Dispatcher.BeginInvoke(new Action(Close)); // Deactivated 中に直接 Close すると例外になるため遅延
     }
 
-    public GroupPopup(GroupDefinition group, System.Drawing.Point? clickPx = null)
+    readonly GroupDefinition _group;
+
+    void OpenApp(string proc, List<NativeWindows.TopWindow> wins)
     {
-        Program.LogError($"ポップアップ表示: {group.Name} メンバー={group.ProcessNames.Count}");
+        Program.LogError($"ポップアップ押下: {proc} 起動中ウィンドウ数={wins.Count}");
+        CloseOnce();
+        if (wins.Count > 0) { NativeWindows.Activate(wins[0].Handle); return; }
+        if (!_group.LaunchPaths.TryGetValue(proc, out var path))
+            path = AppCatalog.Lookup(proc)?.LaunchPath;
+        if (path is null)
+        {
+            System.Windows.MessageBox.Show($"{proc} の起動方法が見つかりません。設定画面で一度グループから外し、一覧から追加し直してください。", "Taskbar Grouping");
+            return;
+        }
+        Program.LogError($"起動: {proc} -> {path} (存在={File.Exists(path)})");
+        try
+        {
+            if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
+            else
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Program.LogError("起動失敗: " + ex);
+            System.Windows.MessageBox.Show($"{proc} を起動できませんでした。\n{ex.Message}", "Taskbar Grouping");
+        }
+    }
+
+    public GroupPopup(GroupConfig config, GroupDefinition group, System.Drawing.Point? clickPx = null)
+    {
+        _group = group;
+        Program.LogError($"ポップアップ表示: {group.Name} メンバー={group.ProcessNames.Count} 表示={config.PopupView}");
         Title = group.Name;
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
         Topmost = true;
         SizeToContent = SizeToContent.WidthAndHeight;
-        MinWidth = 220;
 
+        bool iconsOnly = config.PopupView == PopupViewMode.IconsOnly;
         var running = NativeWindows.GetTaskbarWindows();
-        var panel = new StackPanel { Margin = new Thickness(6) };
-        panel.Children.Add(new TextBlock { Text = group.Name, FontWeight = FontWeights.Bold, Margin = new Thickness(6, 2, 6, 6) });
+        var root = new StackPanel { Margin = new Thickness(6) };
+        root.Children.Add(new TextBlock { Text = group.Name, FontWeight = FontWeights.Bold, Margin = new Thickness(6, 2, 6, 6) });
 
+        System.Windows.Controls.Panel items = iconsOnly
+            ? new WrapPanel { MaxWidth = 296 }
+            : new StackPanel { MinWidth = 240 };
         foreach (var proc in group.ProcessNames)
         {
             var wins = running.Where(w => string.Equals(w.ProcessName, proc, StringComparison.OrdinalIgnoreCase)).ToList();
             group.DisplayNames.TryGetValue(proc, out var disp);
-            var label = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
-            label.Children.Add(new TextBlock { Text = wins.Count > 0 ? "●" : "", Width = 18 }); // 起動中だけ印を付ける
-            label.Children.Add(new TextBlock { Text = disp ?? proc });
-            var b = new System.Windows.Controls.Button
+            var name = disp ?? proc;
+            group.LaunchPaths.TryGetValue(proc, out var lp);
+            var icon = lp is null ? null : IconComposer.GetIconCached(lp, 64);
+
+            System.Windows.Controls.Button b;
+            if (iconsOnly)
             {
-                Content = label, HorizontalContentAlignment = System.Windows.HorizontalAlignment.Left,
-                Padding = new Thickness(8, 6, 8, 6), Margin = new Thickness(0, 1, 0, 1)
-            };
-            b.Click += (_, _) =>
+                // アイコンのみ: 起動中は右下に ● を重ねる
+                var g = new Grid { Width = 40, Height = 40 };
+                g.Children.Add(new System.Windows.Controls.Image { Source = icon, Width = 36, Height = 36 });
+                if (wins.Count > 0)
+                    g.Children.Add(new System.Windows.Shapes.Ellipse
+                    {
+                        Width = 10, Height = 10, Fill = System.Windows.Media.Brushes.Black,
+                        Stroke = System.Windows.Media.Brushes.White, StrokeThickness = 1.5,
+                        HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+                        VerticalAlignment = System.Windows.VerticalAlignment.Bottom,
+                    });
+                b = new System.Windows.Controls.Button { Content = g, Padding = new Thickness(6), Margin = new Thickness(2), ToolTip = name };
+            }
+            else
             {
-                Program.LogError($"ポップアップ押下: {proc} 起動中ウィンドウ数={wins.Count}");
-                CloseOnce();
-                if (wins.Count > 0) { NativeWindows.Activate(wins[0].Handle); return; }
-                if (!group.LaunchPaths.TryGetValue(proc, out var path))
-                    path = AppCatalog.Lookup(proc)?.LaunchPath;
-                if (path is null)
+                var label = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+                label.Children.Add(new TextBlock { Text = wins.Count > 0 ? "●" : "", Width = 18, VerticalAlignment = System.Windows.VerticalAlignment.Center });
+                label.Children.Add(new System.Windows.Controls.Image { Source = icon, Width = 24, Height = 24, Margin = new Thickness(0, 0, 8, 0) });
+                label.Children.Add(new TextBlock { Text = name, VerticalAlignment = System.Windows.VerticalAlignment.Center });
+                b = new System.Windows.Controls.Button
                 {
-                    System.Windows.MessageBox.Show($"{proc} の起動方法が見つかりません。設定画面で一度グループから外し、一覧から追加し直してください。", "Taskbar Grouping");
-                    return;
-                }
-                Program.LogError($"起動: {proc} -> {path} (存在={File.Exists(path)})");
-                try
-                {
-                    if (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
-                        Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
-                    else
-                        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-                }
-                catch (Exception ex)
-                {
-                    Program.LogError("起動失敗: " + ex);
-                    System.Windows.MessageBox.Show($"{proc} を起動できませんでした。\n{ex.Message}", "Taskbar Grouping");
-                }
-            };
-            panel.Children.Add(b);
+                    Content = label, HorizontalContentAlignment = System.Windows.HorizontalAlignment.Left,
+                    Padding = new Thickness(8, 5, 8, 5), Margin = new Thickness(0, 1, 0, 1)
+                };
+            }
+            b.Click += (_, _) => OpenApp(proc, wins);
+            items.Children.Add(b);
         }
-        Content = new Border { BorderBrush = System.Windows.Media.Brushes.Gray, BorderThickness = new Thickness(1), Child = panel };
+        root.Children.Add(items);
+        Content = new Border { BorderBrush = System.Windows.Media.Brushes.Gray, BorderThickness = new Thickness(1), Child = root };
 
         Deactivated += (_, _) => CloseOnce();
         Loaded += (_, _) =>
