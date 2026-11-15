@@ -38,7 +38,8 @@ static class IconComposer
             SHCreateItemFromParsingName(parsingName, IntPtr.Zero, ref iid, out var f);
             long size = ((long)px << 32) | (uint)px; // SIZE{cx,cy} を 64bit にパック(cx が下位)
             size = (long)(uint)px | ((long)px << 32);
-            if (f.GetImage(size, 0, out var hbm) != 0) return null;
+            int hr = f.GetImage(size, 0, out var hbm);
+            if (hr != 0) { Program.LogError($"アイコン取得失敗 {parsingName} HRESULT=0x{hr:X8}"); return null; }
             try
             {
                 var src = Imaging.CreateBitmapSourceFromHBitmap(hbm, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());

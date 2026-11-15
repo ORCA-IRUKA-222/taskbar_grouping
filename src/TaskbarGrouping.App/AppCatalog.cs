@@ -10,6 +10,10 @@ sealed record AppEntry(string DisplayName, string ProcessName, bool Running, boo
 
 static class AppCatalog
 {
+    /// <summary>保存済みの起動パスがまだ使えるか(shell: は常に有効、ファイルは存在確認)。</summary>
+    public static bool IsUsable(string? path) =>
+        !string.IsNullOrEmpty(path) && (path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase) || File.Exists(path));
+
     static string Env(Environment.SpecialFolder f) => Environment.GetFolderPath(f);
 
     static Dictionary<string, AppEntry>? _cache;
@@ -117,7 +121,7 @@ Get-StartApps | ForEach-Object {
                 var name = Path.GetFileNameWithoutExtension(lnk);
                 if (name.Contains("uninstall", StringComparison.OrdinalIgnoreCase)) continue;
                 map.TryGetValue(proc, out var old);
-                map[proc] = new AppEntry(name, proc, false, pinned || (old?.Pinned ?? false), pinned ? lnk : (old?.LaunchPath ?? lnk));
+                map[proc] = new AppEntry(name, proc, false, pinned || (old?.Pinned ?? false), old?.LaunchPath ?? lnk);
             }
             catch (Exception) { /* 壊れたショートカットは無視 */ }
         }

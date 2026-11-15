@@ -60,7 +60,7 @@ static class Program
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
 
         // 起動方法(アイコン取得元)が未記録の登録済みアプリを、バックグラウンドで補完して保存する
-        if (config.Groups.Any(g => g.ProcessNames.Any(p => !g.LaunchPaths.ContainsKey(p))))
+        if (config.Groups.Any(g => g.ProcessNames.Any(p => !AppCatalog.IsUsable(g.LaunchPaths.GetValueOrDefault(p)))))
         {
             Task.Run(() => AppCatalog.Collect()).ContinueWith(t =>
             {
@@ -70,7 +70,7 @@ static class Program
                     foreach (var g in config.Groups)
                         foreach (var proc in g.ProcessNames)
                         {
-                            if (g.LaunchPaths.ContainsKey(proc)) continue;
+                            if (AppCatalog.IsUsable(g.LaunchPaths.GetValueOrDefault(proc))) continue;
                             var e = AppCatalog.Lookup(proc);
                             if (e?.LaunchPath is null) continue;
                             g.LaunchPaths[proc] = e.LaunchPath;
