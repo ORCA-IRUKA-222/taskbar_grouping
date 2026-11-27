@@ -11,7 +11,7 @@ sealed class TaskbarHoverWatcher
     readonly GroupConfig _config;
     readonly Action<GroupDefinition, System.Drawing.Rectangle> _onHover;
     public volatile bool Enabled = true;
-    const int DelayMs = 400;
+    const int DelayMs = 300;
     string? _lastError;
     string? _lastDiag;
 

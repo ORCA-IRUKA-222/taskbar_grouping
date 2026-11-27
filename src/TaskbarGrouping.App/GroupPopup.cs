@@ -41,6 +41,8 @@ sealed class GroupPopup : Window
         Topmost = true;
         ShowActivated = !hover;
         SizeToContent = SizeToContent.WidthAndHeight;
+        AllowsTransparency = true;                       // 出現アニメーションで背景を透かすため
+        Background = System.Windows.Media.Brushes.Transparent;
 
         _running = NativeWindows.GetTaskbarWindows();
         Build();
@@ -48,7 +50,7 @@ sealed class GroupPopup : Window
         Activated += (_, _) => IsHoverMode = false;
         Deactivated += (_, _) => CloseOnce();
         SizeChanged += (_, _) => Place();
-        Loaded += (_, _) => { Place(); if (!hover) Activate(); };
+        Loaded += (_, _) => { Place(); AnimateIn(); if (!hover) Activate(); };
 
         if (hover)
         {
@@ -79,6 +81,26 @@ sealed class GroupPopup : Window
         if (_anchorRect is { } a) area = System.Drawing.Rectangle.Union(area, a); // 間のすき間も含める
         area.Inflate(4, 4);
         return area.Contains(c);
+    }
+
+    bool TaskbarBelow()
+    {
+        var wa = System.Windows.Forms.Screen.FromPoint(_anchor).WorkingArea;
+        return _anchor.Y > wa.Top + wa.Height / 2;
+    }
+
+    /// <summary>通常のタスクバーと同じように、タスクバー側からせり上がって表示する。</summary>
+    void AnimateIn()
+    {
+        if (Content is not FrameworkElement fe) return;
+        var tt = new System.Windows.Media.TranslateTransform(0, TaskbarBelow() ? 24 : -24);
+        fe.RenderTransform = tt;
+        fe.Opacity = 0;
+        var dur = TimeSpan.FromMilliseconds(170);
+        var ease = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut };
+        tt.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty,
+            new System.Windows.Media.Animation.DoubleAnimation(0, dur) { EasingFunction = ease });
+        fe.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(1, dur));
     }
 
     void Place()
