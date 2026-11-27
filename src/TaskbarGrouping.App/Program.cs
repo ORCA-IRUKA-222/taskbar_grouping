@@ -35,7 +35,7 @@ static class Program
 
     static void Run(string[] args)
     {
-        LogError("起動開始 args=" + string.Join(" ", args));
+        LogError($"起動開始 build={File.GetLastWriteTime(Environment.ProcessPath!):yyyy-MM-dd HH:mm} args=" + string.Join(" ", args));
         // 多重起動防止: 2 つ目は既存プロセスに「設定を開け」と通知して終了
         using var mutex = new Mutex(true, @"Local\TaskbarGrouping.SingleInstance", out var first);
         var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\TaskbarGrouping.Show");

@@ -50,7 +50,8 @@ sealed class GroupPopup : Window
         Activated += (_, _) => IsHoverMode = false;
         Deactivated += (_, _) => CloseOnce();
         SizeChanged += (_, _) => Place();
-        Loaded += (_, _) => { Place(); AnimateIn(); if (!hover) Activate(); };
+        Loaded += (_, _) => { Place(); PrepareAnimation(); if (!hover) Activate(); };
+        ContentRendered += (_, _) => AnimateIn(); // 最初の描画が終わってから動かす(Loaded 直後だと見えないうちに終わるため)
 
         if (hover)
         {
@@ -89,16 +90,24 @@ sealed class GroupPopup : Window
         return _anchor.Y > wa.Top + wa.Height / 2;
     }
 
+    System.Windows.Media.TranslateTransform? _slide;
+
+    /// <summary>出現前の状態(タスクバー側にずらして透明)にしておく。</summary>
+    void PrepareAnimation()
+    {
+        if (Content is not FrameworkElement fe) return;
+        _slide = new System.Windows.Media.TranslateTransform(0, TaskbarBelow() ? 40 : -40);
+        fe.RenderTransform = _slide;
+        fe.Opacity = 0;
+    }
+
     /// <summary>通常のタスクバーと同じように、タスクバー側からせり上がって表示する。</summary>
     void AnimateIn()
     {
-        if (Content is not FrameworkElement fe) return;
-        var tt = new System.Windows.Media.TranslateTransform(0, TaskbarBelow() ? 24 : -24);
-        fe.RenderTransform = tt;
-        fe.Opacity = 0;
-        var dur = TimeSpan.FromMilliseconds(170);
+        if (Content is not FrameworkElement fe || _slide is null) return;
+        var dur = TimeSpan.FromMilliseconds(250);
         var ease = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut };
-        tt.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty,
+        _slide.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty,
             new System.Windows.Media.Animation.DoubleAnimation(0, dur) { EasingFunction = ease });
         fe.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(1, dur));
     }
