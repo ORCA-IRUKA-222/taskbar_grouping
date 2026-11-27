@@ -86,21 +86,44 @@ static class Program
         timer.Tick += (_, _) => applier.Tick();
         timer.Start();
 
+        GroupPopup? current = null;
+
+        // クリック(ピン留めボタンから起動された)による表示
+        void ShowPopup(string request)
+        {
+            var parts = request.Split('|');
+            var pos = parts.Length == 3 && int.TryParse(parts[1], out var x) && int.TryParse(parts[2], out var y)
+                ? new System.Drawing.Point(x, y) : System.Windows.Forms.Cursor.Position;
+            var g = config.Groups.FirstOrDefault(v => v.Id == parts[0]);
+            if (g is null) return;
+            if (current is { IsLoaded: true, IsClosing: false } && current.GroupId == g.Id) { current.Activate(); return; } // ホバー中の一覧をそのまま使う
+            current?.CloseOnce();
+            current = new GroupPopup(config, g, pos);
+            current.Show();
+        }
+
+        // カーソルを合わせたことによる表示
+        void ShowHoverPopup(GroupDefinition g, System.Drawing.Rectangle buttonRect)
+        {
+            if (current is { IsLoaded: true, IsClosing: false } && current.GroupId == g.Id) return;
+            current?.CloseOnce();
+            var center = new System.Drawing.Point(buttonRect.Left + buttonRect.Width / 2, buttonRect.Top + buttonRect.Height / 2);
+            current = new GroupPopup(config, g, center, buttonRect, hover: true);
+            current.Show();
+        }
+
+        var hover = new TaskbarHoverWatcher(config, (g, r) => app.Dispatcher.BeginInvoke(new Action(() => ShowHoverPopup(g, r))))
+        {
+            Enabled = config.ShowOnHover
+        };
+        hover.Start();
+
         SettingsWindow? win = null;
         void ShowSettings()
         {
             if (win is { IsLoaded: true }) { win.Activate(); return; }
-            win = new SettingsWindow(config, () => { config.Save(); applier.Reapply(); });
+            win = new SettingsWindow(config, () => { config.Save(); applier.Reapply(); hover.Enabled = config.ShowOnHover; });
             win.Show();
-        }
-
-        void ShowPopup(string request)
-        {
-            var parts = request.Split('|');
-            System.Drawing.Point? pos = parts.Length == 3 && int.TryParse(parts[1], out var x) && int.TryParse(parts[2], out var y)
-                ? new System.Drawing.Point(x, y) : null;
-            var g = config.Groups.FirstOrDefault(v => v.Id == parts[0]);
-            if (g is not null) new GroupPopup(config, g, pos).Show();
         }
 
         var waiter = new Thread(() =>
@@ -244,6 +267,12 @@ sealed class SettingsWindow : Window
             IsChecked = _config.HideMemberButtons, Margin = new Thickness(0, 12, 0, 0)
         };
         hide.Click += (_, _) => { _config.HideMemberButtons = hide.IsChecked == true; _changed(); };
+        var hoverBox = new System.Windows.Controls.CheckBox
+        {
+            Content = "グループのボタンにカーソルを合わせたら一覧を表示する",
+            IsChecked = _config.ShowOnHover, Margin = new Thickness(0, 8, 0, 0)
+        };
+        hoverBox.Click += (_, _) => { _config.ShowOnHover = hoverBox.IsChecked == true; _changed(); };
         var view = new System.Windows.Controls.ComboBox { Margin = new Thickness(0, 8, 0, 0) };
         view.Items.Add("一覧の表示: アイコンと名前");
         view.Items.Add("一覧の表示: アイコンのみ");
@@ -262,7 +291,7 @@ sealed class SettingsWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         var mid = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8) };
-        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(shortcut); mid.Children.Add(hide); mid.Children.Add(view); mid.Children.Add(manual); mid.Children.Add(manualAdd);
+        mid.Children.Add(toGroup); mid.Children.Add(remove); mid.Children.Add(refresh); mid.Children.Add(shortcut); mid.Children.Add(hide); mid.Children.Add(hoverBox); mid.Children.Add(view); mid.Children.Add(manual); mid.Children.Add(manualAdd);
         Grid.SetColumn(_members, 0); Grid.SetColumn(mid, 1); Grid.SetColumn(rightPane, 2);
         grid.Children.Add(_members); grid.Children.Add(mid); grid.Children.Add(rightPane);
 

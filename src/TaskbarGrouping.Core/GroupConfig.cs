@@ -26,6 +26,9 @@ public sealed class GroupConfig
     /// <summary>true: グループに入れたアプリを、個別のタスクバーボタンとして表示しない(グループのボタンだけにする)。</summary>
     public bool HideMemberButtons { get; set; } = true;
 
+    /// <summary>true: グループのボタンにカーソルを合わせると一覧を表示する。</summary>
+    public bool ShowOnHover { get; set; } = true;
+
     /// <summary>グループのボタンを押したときに出る一覧の表示形式。</summary>
     public PopupViewMode PopupView { get; set; } = PopupViewMode.IconsAndNames;
 
